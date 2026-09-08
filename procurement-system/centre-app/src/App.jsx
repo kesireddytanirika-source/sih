@@ -251,25 +251,27 @@ function UpdateStatus({ appt, onBack, onStatus, onProcure }) {
         </div>
       )}
 
-      <h3 className="section-label">Move status</h3>
-      <p className="muted" style={{ marginTop: -6, marginBottom: 10 }}>These six stages are controlled only from this centre app — the farmer app displays them read-only.</p>
-      <div className="status-actions">
-        <button className="status-btn" disabled={appt.status !== 'Appointment Booked'} onClick={() => onStatus('Checked In at Centre', 'Farmer checked in at centre')}>Check in at centre</button>
-        <button className="status-btn" disabled={appt.status !== 'Checked In at Centre'} onClick={() => onStatus('Quality Inspection', 'Sent for quality inspection')}>Start quality inspection</button>
-        <button className="status-btn" disabled={appt.status !== 'Weighing Complete'} onClick={() => onStatus('Payment Processing', 'Payment processing started')}>Start payment processing</button>
-        <button className="status-btn" disabled={appt.status !== 'Payment Processing'} onClick={() => onStatus('Payment Completed', 'Payment completed')}>Mark payment completed</button>
-        <button className="status-btn warn" disabled={closed} onClick={() => onStatus('No Show', 'Marked no-show')}>No show</button>
-        <button className="status-btn danger" disabled={closed} onClick={() => onStatus('Rejected', 'Rejected by centre')}>Reject</button>
-      </div>
-
-      <h3 className="section-label">Record weighing</h3>
-      <p className="muted" style={{ marginTop: -6, marginBottom: 10 }}>Available once quality inspection is underway. This records the accepted quantity and rate, and moves the booking to "Weighing Complete".</p>
+      <h3 className="section-label">Weighing details</h3>
+      <p className="muted" style={{ marginTop: -6, marginBottom: 10 }}>Fill these in before pressing the "Weighing Complete" button below.</p>
       <div className="form">
         <label>Quantity accepted (qtl)<input type="number" value={qty} onChange={e => setQty(e.target.value)} /></label>
         <label>Rate (₹ / qtl)<input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="e.g. 2100" /></label>
-        <button className="primary-btn wide" disabled={appt.status !== 'Quality Inspection'} onClick={() => onProcure(Number(qty), Number(price))}>
-          <CheckCircle2 size={16} /> Mark weighing complete
-        </button>
+      </div>
+
+      <h3 className="section-label">Move status</h3>
+      <p className="muted" style={{ marginTop: -6, marginBottom: 10 }}>These buttons are only available in the centre app — clicking one updates the status the farmer sees on their Status tab.</p>
+      <div className="status-actions status-actions-stack">
+        <button className="status-btn" disabled={appt.status !== 'Appointment Booked'} onClick={() => onStatus('Checked In at Centre', 'Farmer checked in at centre')}>Checked In at Centre</button>
+        <button className="status-btn" disabled={appt.status !== 'Checked In at Centre'} onClick={() => onStatus('Quality Inspection', 'Sent for quality inspection')}>Quality Inspection</button>
+        <button className="status-btn" disabled={appt.status !== 'Quality Inspection'} onClick={() => onProcure(Number(qty), Number(price))}>Weighing Complete</button>
+        <button className="status-btn" disabled={appt.status !== 'Weighing Complete'} onClick={() => onStatus('Payment Processing', 'Payment processing started')}>Payment Processing</button>
+        <button className="status-btn" disabled={appt.status !== 'Payment Processing'} onClick={() => onStatus('Payment Completed', 'Payment completed')}>Payment Completed</button>
+      </div>
+
+      <h3 className="section-label">Exceptions</h3>
+      <div className="status-actions">
+        <button className="status-btn warn" disabled={closed} onClick={() => onStatus('No Show', 'Marked no-show')}>No show</button>
+        <button className="status-btn danger" disabled={closed} onClick={() => onStatus('Rejected', 'Rejected by centre')}>Reject</button>
       </div>
     </Screen>
   );

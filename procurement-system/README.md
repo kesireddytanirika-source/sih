@@ -126,3 +126,4 @@ before it's public-facing:
    farmers if this handles real payments or real farmer data.
 5. **Consider a proper migration tool** (e.g. Prisma or Drizzle) once the
    schema needs to evolve without hand-written SQL migrations.
+
