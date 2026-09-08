@@ -94,3 +94,29 @@ body { margin: 0; background: var(--bg); font-family: 'IBM Plex Sans', sans-seri
 .tl-dot { --dot-color:#33513C; width:9px; height:9px; border-radius:50%; background:var(--dot-color); margin-top:4px; flex-shrink:0; }
 
 .empty-state { text-align:center; color:var(--muted); font-size:13.5px; padding: 30px 10px; border:1px dashed var(--line); border-radius:10px; }
+
+.chat-fab {
+  position: fixed; right: 20px; bottom: 20px; z-index: 40;
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--forest); color: #F7F4E9; border: none;
+  display:flex; align-items:center; justify-content:center;
+  cursor: pointer; box-shadow: 0 2px 10px rgba(35,41,31,0.25);
+}
+.chat-fab:hover { background: var(--forest-dark); }
+
+.chat-panel {
+  position: fixed; right: 20px; bottom: 82px; z-index: 40;
+  width: 320px; max-width: calc(100vw - 40px); height: 420px; max-height: calc(100vh - 140px);
+  background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 8px 30px rgba(35,41,31,0.2);
+}
+.chat-head { padding: 12px 14px; background: var(--forest-dark); color: #F3EFDF; font-family:'Fraunces', serif; font-weight:600; font-size: 14px; }
+.chat-body { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.chat-msg { max-width: 85%; padding: 8px 11px; border-radius: 10px; font-size: 13px; line-height: 1.45; white-space: pre-wrap; }
+.chat-msg.assistant { align-self: flex-start; background: var(--bg); color: var(--ink); border: 1px solid var(--line); }
+.chat-msg.user { align-self: flex-end; background: var(--forest); color: #F7F4E9; }
+.chat-input-row { display: flex; gap: 6px; padding: 10px; border-top: 1px solid var(--line); background: var(--paper); }
+.chat-input-row input { flex: 1; font-family: inherit; font-size: 13px; padding: 8px 10px; border-radius: 7px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.chat-input-row button { background: var(--forest); color: #F7F4E9; border: none; border-radius: 7px; width: 36px; display:flex; align-items:center; justify-content:center; cursor: pointer; }
+.chat-input-row button:disabled { opacity: 0.5; cursor: not-allowed; }

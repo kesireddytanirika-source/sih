@@ -4,6 +4,7 @@ import {
   MapPin, Wheat, AlertCircle, LogOut, Warehouse, RefreshCw
 } from 'lucide-react';
 import { apiFetch } from './api.js';
+import ChatWidget from './ChatWidget.jsx';
 
 const CROPS = ['Paddy', 'Cotton', 'Maize', 'Turmeric', 'Chilli', 'Groundnut'];
 const SLOTS = ['6:00 – 9:00 AM', '9:00 – 12:00 PM', '12:00 – 3:00 PM', '3:00 – 6:00 PM'];
@@ -173,6 +174,8 @@ export default function App() {
       {(view === 'token' || view === 'status') && (
         <ApptDetail id={selectedAppt} token={token} view={view} setView={setView} onBack={() => setView('home')} />
       )}
+
+      <ChatWidget token={token} />
     </div>
   );
 }
