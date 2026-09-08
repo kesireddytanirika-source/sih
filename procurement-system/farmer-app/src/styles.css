@@ -155,4 +155,4 @@ body { margin: 0; background: var(--bg); font-family: 'IBM Plex Sans', sans-seri
 .chat-input-row { display: flex; gap: 6px; padding: 10px; border-top: 1px solid var(--line); background: var(--paper); }
 .chat-input-row input { flex: 1; font-family: inherit; font-size: 13px; padding: 8px 10px; border-radius: 7px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
 .chat-input-row button { background: var(--forest); color: #F7F4E9; border: none; border-radius: 7px; width: 36px; display:flex; align-items:center; justify-content:center; cursor: pointer; }
-.chat-input-row button:disabled { opacity: 0.5; cursor: not-allowed; }
+.chat-input-row button:disabled { opacity: 0.5; cursor: not-allowed; }sss
