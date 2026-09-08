@@ -13,6 +13,13 @@ const STATUS_ORDER = [
   'Appointment Booked', 'Checked In at Centre', 'Quality Inspection',
   'Weighing Complete', 'Payment Processing', 'Payment Completed', 'Rejected', 'No Show',
 ];
+// The six controllable stages, in order. This drives the progress bar on the
+// update screen. Only this app (centre) is ever allowed to move a booking
+// along it — see PATCH /centre/appointments/:id/status on the backend.
+const STATUS_FLOW = [
+  'Appointment Booked', 'Checked In at Centre', 'Quality Inspection',
+  'Weighing Complete', 'Payment Processing', 'Payment Completed',
+];
 const ACTIVE_STATUSES = ['Appointment Booked', 'Checked In at Centre', 'Quality Inspection', 'Weighing Complete', 'Payment Processing'];
 const CLOSED_STATUSES = ['Payment Completed', 'Rejected', 'No Show'];
 const STATUS_COLOR = {
@@ -221,6 +228,8 @@ function UpdateStatus({ appt, onBack, onStatus, onProcure }) {
   if (!appt) return <Screen title="Not found" onBack={onBack}><EmptyState text="Select an appointment from the queue." /></Screen>;
 
   const closed = CLOSED_STATUSES.includes(appt.status);
+  const isClosedException = appt.status === 'Rejected' || appt.status === 'No Show';
+  const stepIndex = STATUS_FLOW.indexOf(appt.status);
 
   return (
     <Screen title={`Token ${appt.token}`} sub={appt.farmer_name} onBack={onBack}>
@@ -231,8 +240,19 @@ function UpdateStatus({ appt, onBack, onStatus, onProcure }) {
         <Row label="Current status" value={<StatusPill status={appt.status} />} />
       </div>
 
+      {!isClosedException && (
+        <div className="progress-track">
+          {STATUS_FLOW.map((s, i) => (
+            <div key={s} className={'progress-step' + (i <= stepIndex ? ' done' : '')}>
+              <span className="progress-dot" style={i <= stepIndex ? { '--dot-color': STATUS_COLOR[s] } : undefined} />
+              <span className="progress-label">{s}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <h3 className="section-label">Move status</h3>
-      <p className="muted" style={{ marginTop: -6, marginBottom: 10 }}>Only the centre can move a booking through these stages — the farmer app only displays them.</p>
+      <p className="muted" style={{ marginTop: -6, marginBottom: 10 }}>These six stages are controlled only from this centre app — the farmer app displays them read-only.</p>
       <div className="status-actions">
         <button className="status-btn" disabled={appt.status !== 'Appointment Booked'} onClick={() => onStatus('Checked In at Centre', 'Farmer checked in at centre')}>Check in at centre</button>
         <button className="status-btn" disabled={appt.status !== 'Checked In at Centre'} onClick={() => onStatus('Quality Inspection', 'Sent for quality inspection')}>Start quality inspection</button>
