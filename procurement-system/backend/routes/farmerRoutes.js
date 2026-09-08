@@ -9,6 +9,21 @@ router.use(requireRole('farmer'));
 // That row-level scoping (not just hiding things in the UI) is what
 // actually stops one farmer from seeing another farmer's data.
 
+// The full lifecycle a booking moves through. Only the centre app can
+// advance a booking along this list (see centreRoutes.js) — the farmer
+// app is read-only on status everywhere below.
+export const STATUS_FLOW = [
+  'Appointment Booked',
+  'Checked In at Centre',
+  'Quality Inspection',
+  'Weighing Complete',
+  'Payment Processing',
+  'Payment Completed',
+];
+// Statuses that still occupy a slot / still count as "in the queue".
+const ACTIVE_STATUSES = ['Appointment Booked', 'Checked In at Centre', 'Quality Inspection', 'Weighing Complete', 'Payment Processing'];
+const CLOSED_STATUSES = ['Payment Completed', 'Rejected', 'No Show'];
+
 router.get('/me', (req, res) => {
   const f = db.prepare('SELECT id, name, phone, village FROM farmers WHERE id = ?').get(req.user.id);
   res.json(f);
@@ -25,11 +40,12 @@ router.get('/availability', (req, res) => {
   const { centreId, date } = req.query;
   const centre = db.prepare('SELECT * FROM centres WHERE id = ?').get(centreId);
   if (!centre) return res.status(404).json({ error: 'Centre not found' });
+  const placeholders = ACTIVE_STATUSES.map(() => '?').join(',');
   const rows = db.prepare(
     `SELECT slot_time, COUNT(*) as count FROM appointments
-     WHERE centre_id = ? AND slot_date = ? AND status IN ('Booked','Confirmed','In Queue')
+     WHERE centre_id = ? AND slot_date = ? AND status IN (${placeholders})
      GROUP BY slot_time`
-  ).all(centreId, date);
+  ).all(centreId, date, ...ACTIVE_STATUSES);
   const counts = Object.fromEntries(rows.map((r) => [r.slot_time, r.count]));
   res.json({ capacityPerSlot: centre.capacity_per_slot, counts });
 });
@@ -42,10 +58,11 @@ router.post('/appointments', (req, res) => {
   const centre = db.prepare('SELECT * FROM centres WHERE id = ?').get(centreId);
   if (!centre) return res.status(404).json({ error: 'Centre not found' });
 
+  const activePlaceholders = ACTIVE_STATUSES.map(() => '?').join(',');
   const activeCount = db.prepare(
     `SELECT COUNT(*) as c FROM appointments
-     WHERE centre_id=? AND slot_date=? AND slot_time=? AND status IN ('Booked','Confirmed','In Queue')`
-  ).get(centreId, slotDate, slotTime).c;
+     WHERE centre_id=? AND slot_date=? AND slot_time=? AND status IN (${activePlaceholders})`
+  ).get(centreId, slotDate, slotTime, ...ACTIVE_STATUSES).c;
   if (activeCount >= centre.capacity_per_slot) {
     return res.status(409).json({ error: 'That slot just filled up. Please pick another.' });
   }
@@ -56,11 +73,11 @@ router.post('/appointments', (req, res) => {
 
   const info = db.prepare(
     `INSERT INTO appointments (token, farmer_id, centre_id, crop_type, crop_qty, crop_grade, slot_date, slot_time, status, created_at)
-     VALUES (?,?,?,?,?,?,?,?, 'Booked', ?)`
+     VALUES (?,?,?,?,?,?,?,?, 'Appointment Booked', ?)`
   ).run(token, req.user.id, centreId, cropType, cropQty, cropGrade || 'A', slotDate, slotTime, now);
 
   db.prepare('INSERT INTO status_history (appointment_id, status, note, created_at) VALUES (?,?,?,?)')
-    .run(info.lastInsertRowid, 'Booked', 'Booked by farmer', now);
+    .run(info.lastInsertRowid, 'Appointment Booked', 'Booked by farmer', now);
 
   res.json({ id: info.lastInsertRowid, token });
 });
@@ -85,6 +102,44 @@ router.get('/appointments/:id', (req, res) => {
   res.json({ ...appt, history, procurement });
 });
 
+// Live queue: for each of this farmer's still-active bookings, show how
+// many bookings at that same centre/date are ahead of it and how many are
+// in the queue in total. Only counts are returned — never other farmers'
+// names, phones, or crop details — so nothing about anyone else leaks.
+router.get('/live-queue', (req, res) => {
+  const closedPlaceholders = CLOSED_STATUSES.map(() => '?').join(',');
+  const mine = db.prepare(
+    `SELECT a.*, c.name as centre_name FROM appointments a
+     JOIN centres c ON c.id = a.centre_id
+     WHERE a.farmer_id = ? AND a.status NOT IN (${closedPlaceholders})
+     ORDER BY a.slot_date ASC, a.token ASC`
+  ).all(req.user.id, ...CLOSED_STATUSES);
+
+  const aheadStmt = db.prepare(
+    `SELECT COUNT(*) as c FROM appointments
+     WHERE centre_id = ? AND slot_date = ? AND status NOT IN (${closedPlaceholders}) AND token < ?`
+  );
+  const totalStmt = db.prepare(
+    `SELECT COUNT(*) as c FROM appointments
+     WHERE centre_id = ? AND slot_date = ? AND status NOT IN (${closedPlaceholders})`
+  );
+
+  const queue = mine.map((a) => ({
+    id: a.id,
+    token: a.token,
+    status: a.status,
+    centreName: a.centre_name,
+    slotDate: a.slot_date,
+    slotTime: a.slot_time,
+    cropType: a.crop_type,
+    cropQty: a.crop_qty,
+    position: aheadStmt.get(a.centre_id, a.slot_date, ...CLOSED_STATUSES, a.token).c + 1,
+    totalInQueue: totalStmt.get(a.centre_id, a.slot_date, ...CLOSED_STATUSES).c,
+  }));
+
+  res.json(queue);
+});
+
 // Chat assistant, grounded only in THIS farmer's own bookings.
 // Nothing here queries outside WHERE farmer_id = req.user.id, so the
 // model is never even shown another farmer's data to accidentally leak.
@@ -106,7 +161,7 @@ router.post('/chat', async (req, res) => {
   const apptSummary = appts.length === 0
     ? 'This farmer has no bookings yet.'
     : appts.map((a) => {
-        const proc = a.status === 'Procured'
+        const proc = (a.status === 'Weighing Complete' || a.status === 'Payment Processing' || a.status === 'Payment Completed')
           ? (() => { const p = db.prepare('SELECT qty, price FROM procurements WHERE appointment_id = ?').get(a.id); return p ? ` — procured ${p.qty} qtl at ₹${p.price}/qtl` : ''; })()
           : '';
         return `- Token ${a.token}: ${a.crop_qty} qtl of ${a.crop_type} (grade ${a.crop_grade}) at ${a.centre_name}, slot ${a.slot_date} ${a.slot_time}, status: ${a.status}${proc}`;
@@ -119,7 +174,7 @@ You can only see this farmer's own bookings, listed below. You have no access to
 This farmer's bookings:
 ${apptSummary}
 
-Answer questions about their bookings, token/queue position, procurement status, and how the app's status flow works (Booked -> Confirmed -> In Queue -> Procured, or Rejected / No Show at the centre's discretion). Keep answers short and conversational. If asked something outside this scope, say so honestly.`;
+Answer questions about their bookings, token/queue position, procurement status, and how the app's status flow works (Appointment Booked -> Checked In at Centre -> Quality Inspection -> Weighing Complete -> Payment Processing -> Payment Completed, or Rejected / No Show at the centre's discretion). Only the procurement centre can change a booking's status — the farmer app is read-only on status. Keep answers short and conversational. If asked something outside this scope, say so honestly.`;
 
   const safeHistory = Array.isArray(history)
     ? history.filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string').slice(-10)
@@ -150,3 +205,4 @@ Answer questions about their bookings, token/queue position, procurement status,
 });
 
 export default router;
+

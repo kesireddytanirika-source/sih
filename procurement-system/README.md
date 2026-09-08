@@ -77,14 +77,38 @@ Farmers self-register with name, phone, and password on first use.
 
 ## The flows, as built
 
-**Farmer site:** Login/Register → Home (own profile + bookings only) → Add
-Crop → Select Centre → Select Slot (live availability per slot) → Booking
-Confirmation → Token → Procurement Status (with full status timeline).
+**Farmer site** is a bottom-nav app with four tabs:
+- **Home** — own profile, quick stats, and recent bookings only.
+- **Booking** — the 4-step new-booking flow (Add Crop → Select Centre →
+  Select Slot with live availability → Confirm), ending in a token.
+- **Status** — every booking with its current stage, a progress bar, and
+  the full status-change timeline. Read-only: a farmer can view status but
+  never change it.
+- **Live Queue** — for each still-active booking, how many bookings are
+  ahead of it and how many are in the queue at that centre today (counts
+  only — never another farmer's name, phone, or crop details).
 
 **Centre site:** Login → Dashboard (stats) → Today's Appointments / Live
-Queue (sorted by token, oldest first) → Update Status (Confirm → Move to
-Queue → Reject / No-show, or record final Procured qty & rate) → Analytics
-(procured volume by crop, status mix, total value).
+Queue (sorted by token, oldest first) → Update Status → Analytics (value
+completed by crop, status mix, total value).
+
+### Status flow
+
+Every booking moves through the same six stages, in order:
+
+`Appointment Booked` → `Checked In at Centre` → `Quality Inspection` →
+`Weighing Complete` → `Payment Processing` → `Payment Completed`
+
+At any point before it closes, the centre can instead mark a booking
+`Rejected` or `No Show`. **Only the procurement centre app can change a
+booking's status** — this is enforced server-side, not just in the UI:
+`backend/routes/farmerRoutes.js` has no route that writes to
+`appointments.status` at all, and every status-changing route in
+`backend/routes/centreRoutes.js` is scoped `WHERE centre_id = <the logged-in
+centre>`. `Weighing Complete` specifically can only be reached via the
+`/centre/appointments/:id/procure` endpoint (it requires a quantity and
+rate), and `Payment Processing` / `Payment Completed` are blocked until that
+weighing record exists.
 
 ## Taking this to production
 

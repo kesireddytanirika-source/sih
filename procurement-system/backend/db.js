@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS appointments (
   crop_grade TEXT NOT NULL,
   slot_date TEXT NOT NULL,
   slot_time TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'Booked',
+  status TEXT NOT NULL DEFAULT 'Appointment Booked',
   created_at INTEGER NOT NULL
 );
 

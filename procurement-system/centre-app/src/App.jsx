@@ -9,11 +9,21 @@ import {
 } from 'recharts';
 import { apiFetch } from './api.js';
 
-const STATUS_ORDER = ['Booked', 'Confirmed', 'In Queue', 'Procured', 'Rejected', 'No Show'];
-const ACTIVE_STATUSES = ['Booked', 'Confirmed', 'In Queue'];
+const STATUS_ORDER = [
+  'Appointment Booked', 'Checked In at Centre', 'Quality Inspection',
+  'Weighing Complete', 'Payment Processing', 'Payment Completed', 'Rejected', 'No Show',
+];
+const ACTIVE_STATUSES = ['Appointment Booked', 'Checked In at Centre', 'Quality Inspection', 'Weighing Complete', 'Payment Processing'];
+const CLOSED_STATUSES = ['Payment Completed', 'Rejected', 'No Show'];
 const STATUS_COLOR = {
-  Booked: '#8A7A46', Confirmed: '#33513C', 'In Queue': '#B98A2E',
-  Procured: '#2E6B3E', Rejected: '#A34D2C', 'No Show': '#7A6A55',
+  'Appointment Booked': '#8A7A46',
+  'Checked In at Centre': '#6E7F9E',
+  'Quality Inspection': '#B98A2E',
+  'Weighing Complete': '#4E7A66',
+  'Payment Processing': '#8A5FA8',
+  'Payment Completed': '#2E6B3E',
+  Rejected: '#A34D2C',
+  'No Show': '#7A6A55',
 };
 
 function todayISO() { return new Date().toISOString().slice(0, 10); }
@@ -98,7 +108,7 @@ export default function App() {
           <div className="stat-grid">
             <StatCard icon={<ClipboardList size={18} />} label="Today's appointments" value={todaysAppts.length} onClick={() => setView('today')} />
             <StatCard icon={<Ticket size={18} />} label="Active in queue" value={activeAppts.length} onClick={() => setView('queue')} />
-            <StatCard icon={<CheckCircle2 size={18} />} label="Total procured" value={appts.filter(a => a.status === 'Procured').length} />
+            <StatCard icon={<CheckCircle2 size={18} />} label="Payments completed" value={appts.filter(a => a.status === 'Payment Completed').length} />
             <StatCard icon={<Users size={18} />} label="Farmers served" value={new Set(appts.map(a => a.farmer_phone)).size} />
           </div>
           <div className="nav-grid">
@@ -210,6 +220,8 @@ function UpdateStatus({ appt, onBack, onStatus, onProcure }) {
   const [price, setPrice] = useState('');
   if (!appt) return <Screen title="Not found" onBack={onBack}><EmptyState text="Select an appointment from the queue." /></Screen>;
 
+  const closed = CLOSED_STATUSES.includes(appt.status);
+
   return (
     <Screen title={`Token ${appt.token}`} sub={appt.farmer_name} onBack={onBack}>
       <div className="confirm-card">
@@ -220,19 +232,23 @@ function UpdateStatus({ appt, onBack, onStatus, onProcure }) {
       </div>
 
       <h3 className="section-label">Move status</h3>
+      <p className="muted" style={{ marginTop: -6, marginBottom: 10 }}>Only the centre can move a booking through these stages — the farmer app only displays them.</p>
       <div className="status-actions">
-        <button className="status-btn" disabled={appt.status !== 'Booked'} onClick={() => onStatus('Confirmed', 'Confirmed by centre')}>Confirm</button>
-        <button className="status-btn" disabled={!['Booked', 'Confirmed'].includes(appt.status)} onClick={() => onStatus('In Queue', 'Called into queue')}>Move to queue</button>
-        <button className="status-btn warn" disabled={['Procured', 'Rejected'].includes(appt.status)} onClick={() => onStatus('No Show', 'Marked no-show')}>No show</button>
-        <button className="status-btn danger" disabled={['Procured', 'Rejected'].includes(appt.status)} onClick={() => onStatus('Rejected', 'Rejected by centre')}>Reject</button>
+        <button className="status-btn" disabled={appt.status !== 'Appointment Booked'} onClick={() => onStatus('Checked In at Centre', 'Farmer checked in at centre')}>Check in at centre</button>
+        <button className="status-btn" disabled={appt.status !== 'Checked In at Centre'} onClick={() => onStatus('Quality Inspection', 'Sent for quality inspection')}>Start quality inspection</button>
+        <button className="status-btn" disabled={appt.status !== 'Weighing Complete'} onClick={() => onStatus('Payment Processing', 'Payment processing started')}>Start payment processing</button>
+        <button className="status-btn" disabled={appt.status !== 'Payment Processing'} onClick={() => onStatus('Payment Completed', 'Payment completed')}>Mark payment completed</button>
+        <button className="status-btn warn" disabled={closed} onClick={() => onStatus('No Show', 'Marked no-show')}>No show</button>
+        <button className="status-btn danger" disabled={closed} onClick={() => onStatus('Rejected', 'Rejected by centre')}>Reject</button>
       </div>
 
-      <h3 className="section-label">Record procurement</h3>
+      <h3 className="section-label">Record weighing</h3>
+      <p className="muted" style={{ marginTop: -6, marginBottom: 10 }}>Available once quality inspection is underway. This records the accepted quantity and rate, and moves the booking to "Weighing Complete".</p>
       <div className="form">
         <label>Quantity accepted (qtl)<input type="number" value={qty} onChange={e => setQty(e.target.value)} /></label>
         <label>Rate (₹ / qtl)<input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="e.g. 2100" /></label>
-        <button className="primary-btn wide" disabled={appt.status === 'Procured'} onClick={() => onProcure(Number(qty), Number(price))}>
-          <CheckCircle2 size={16} /> Mark procured
+        <button className="primary-btn wide" disabled={appt.status !== 'Quality Inspection'} onClick={() => onProcure(Number(qty), Number(price))}>
+          <CheckCircle2 size={16} /> Mark weighing complete
         </button>
       </div>
     </Screen>
@@ -242,9 +258,9 @@ function UpdateStatus({ appt, onBack, onStatus, onProcure }) {
 function Analytics({ appts }) {
   const byStatus = STATUS_ORDER.map(s => ({ name: s, value: appts.filter(a => a.status === s).length })).filter(d => d.value > 0);
   const byCrop = {};
-  appts.filter(a => a.status === 'Procured').forEach(a => { byCrop[a.crop_type] = (byCrop[a.crop_type] || 0) + (a.p_qty || 0); });
+  appts.filter(a => a.status === 'Payment Completed').forEach(a => { byCrop[a.crop_type] = (byCrop[a.crop_type] || 0) + (a.p_qty || 0); });
   const cropData = Object.entries(byCrop).map(([name, qty]) => ({ name, qty }));
-  const totalValue = appts.filter(a => a.status === 'Procured').reduce((sum, a) => sum + (a.p_qty || 0) * (a.p_price || 0), 0);
+  const totalValue = appts.filter(a => a.status === 'Payment Completed').reduce((sum, a) => sum + (a.p_qty || 0) * (a.p_price || 0), 0);
 
   if (appts.length === 0) return <EmptyState text="No data yet — appointments will show up here." />;
 

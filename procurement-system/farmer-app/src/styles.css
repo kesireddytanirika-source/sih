@@ -95,8 +95,44 @@ body { margin: 0; background: var(--bg); font-family: 'IBM Plex Sans', sans-seri
 
 .empty-state { text-align:center; color:var(--muted); font-size:13.5px; padding: 30px 10px; border:1px dashed var(--line); border-radius:10px; }
 
+.app-shell.has-bottom-nav { padding-bottom: 74px; }
+
+.bottom-nav {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: 0;
+  width: 100%; max-width: 520px; display: flex; z-index: 45;
+  background: var(--paper); border-top: 1px solid var(--line);
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+}
+.bottom-nav-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  background: none; border: none; cursor: pointer; padding: 6px 2px;
+  color: var(--muted); font-size: 10.5px; font-family: inherit; border-radius: 8px;
+}
+.bottom-nav-btn.active { color: var(--forest-dark); }
+.bottom-nav-btn.active svg { color: var(--forest); }
+
+.stat-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.home-stat {
+  background: var(--paper); border: 1px solid var(--line); border-radius: 8px;
+  padding: 12px; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 2px;
+}
+.home-stat-value { font-family: 'Fraunces', serif; font-weight: 600; font-size: 22px; color: var(--forest-dark); }
+.home-stat-label { font-size: 11.5px; color: var(--muted); }
+
+.progress-track { display: flex; flex-direction: column; gap: 0; margin: 4px 0 16px; }
+.progress-step { display: flex; align-items: center; gap: 10px; padding: 5px 0; font-size: 12.5px; color: var(--muted); }
+.progress-step.done { color: var(--ink); font-weight: 500; }
+.progress-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); flex-shrink: 0; }
+.progress-step.done .progress-dot { background: var(--dot-color, var(--forest)); }
+
+.queue-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.queue-card { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.queue-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.queue-position { margin-top: 8px; display: flex; align-items: baseline; gap: 4px; }
+.queue-position-num { font-family: 'Fraunces', serif; font-weight: 600; font-size: 22px; color: var(--forest-dark); }
+
 .chat-fab {
-  position: fixed; right: 20px; bottom: 20px; z-index: 40;
+  position: fixed; right: 20px; bottom: 86px; z-index: 40;
   width: 52px; height: 52px; border-radius: 50%;
   background: var(--forest); color: #F7F4E9; border: none;
   display:flex; align-items:center; justify-content:center;
@@ -105,8 +141,8 @@ body { margin: 0; background: var(--bg); font-family: 'IBM Plex Sans', sans-seri
 .chat-fab:hover { background: var(--forest-dark); }
 
 .chat-panel {
-  position: fixed; right: 20px; bottom: 82px; z-index: 40;
-  width: 320px; max-width: calc(100vw - 40px); height: 420px; max-height: calc(100vh - 140px);
+  position: fixed; right: 20px; bottom: 148px; z-index: 40;
+  width: 320px; max-width: calc(100vw - 40px); height: 420px; max-height: calc(100vh - 206px);
   background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
   display: flex; flex-direction: column; overflow: hidden;
   box-shadow: 0 8px 30px rgba(35,41,31,0.2);
