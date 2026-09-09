@@ -8,6 +8,7 @@ import {
   PieChart, Pie, Cell, Legend
 } from 'recharts';
 import { apiFetch } from './api.js';
+import { LangContext, useLang, LanguageSwitcher, STATUS_KEY, translate as translateWith } from './i18n.jsx';
 
 const STATUS_ORDER = [
   'Appointment Booked', 'Checked In at Centre', 'Quality Inspection',
@@ -38,7 +39,9 @@ function fmtDate(iso) {
   return new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 function StatusPill({ status }) {
-  return <span className="pill" style={{ '--pill-color': STATUS_COLOR[status] || '#33513C' }}>{status}</span>;
+  const { t } = useLang();
+  const label = STATUS_KEY[status] ? t(STATUS_KEY[status]) : status;
+  return <span className="pill" style={{ '--pill-color': STATUS_COLOR[status] || '#33513C' }}>{label}</span>;
 }
 function Row({ label, value }) { return <div className="info-row"><span className="muted">{label}</span><span>{value}</span></div>; }
 function EmptyState({ text }) { return <div className="empty-state">{text}</div>; }
@@ -65,6 +68,9 @@ export default function App() {
   const [appts, setAppts] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [error, setError] = useState('');
+  const [lang, setLang] = useState(() => localStorage.getItem('centre_lang') || 'en');
+  useEffect(() => { localStorage.setItem('centre_lang', lang); }, [lang]);
+  const t = (key, vars) => translateWith(lang, key, vars);
 
   const authed = Boolean(token && centre);
 
@@ -83,10 +89,14 @@ export default function App() {
 
   useEffect(() => { if (authed) loadAll(); }, [authed]);
 
-  if (!authed) return <CentreLogin onAuthed={(t, c) => {
-    localStorage.setItem('centre_token', t); localStorage.setItem('centre_profile', JSON.stringify(c));
-    setToken(t); setCentre(c);
-  }} />;
+  if (!authed) return (
+    <LangContext.Provider value={{ lang, setLang, t }}>
+      <CentreLogin onAuthed={(tok, c) => {
+        localStorage.setItem('centre_token', tok); localStorage.setItem('centre_profile', JSON.stringify(c));
+        setToken(tok); setCentre(c);
+      }} />
+    </LangContext.Provider>
+  );
 
   const today = todayISO();
   const todaysAppts = appts.filter(a => a.slot_date === today).sort((a, b) => a.token.localeCompare(b.token));
@@ -102,10 +112,15 @@ export default function App() {
   };
 
   return (
+    <LangContext.Provider value={{ lang, setLang, t }}>
     <div className="app-shell">
       <header className="topbar">
-        <div className="brand"><Wheat size={20} /><span>Kisan Setu <em>Centre</em></span></div>
-        <div className="who"><span>{centre.name}</span><button onClick={logout} className="logout-btn"><LogOut size={15} /> Log out</button></div>
+        <div className="brand"><Wheat size={20} /><span>Kisan Setu <em>{t('brand_tagline')}</em></span></div>
+        <div className="who">
+          <LanguageSwitcher compact />
+          <span>{centre.name}</span>
+          <button onClick={logout} className="logout-btn"><LogOut size={15} /> {t('logout')}</button>
+        </div>
       </header>
 
       {error && <div className="banner-error"><AlertCircle size={14} /> {error} <button onClick={() => setError('')}>×</button></div>}
@@ -113,27 +128,27 @@ export default function App() {
       {view === 'dashboard' && (
         <Screen title={centre.name} sub={centre.location}>
           <div className="stat-grid">
-            <StatCard icon={<ClipboardList size={18} />} label="Today's appointments" value={todaysAppts.length} onClick={() => setView('today')} />
-            <StatCard icon={<Ticket size={18} />} label="Active in queue" value={activeAppts.length} onClick={() => setView('queue')} />
-            <StatCard icon={<CheckCircle2 size={18} />} label="Payments completed" value={appts.filter(a => a.status === 'Payment Completed').length} />
-            <StatCard icon={<Users size={18} />} label="Farmers served" value={new Set(appts.map(a => a.farmer_phone)).size} />
+            <StatCard icon={<ClipboardList size={18} />} label={t('todays_appointments')} value={todaysAppts.length} onClick={() => setView('today')} />
+            <StatCard icon={<Ticket size={18} />} label={t('active_in_queue')} value={activeAppts.length} onClick={() => setView('queue')} />
+            <StatCard icon={<CheckCircle2 size={18} />} label={t('payments_completed')} value={appts.filter(a => a.status === 'Payment Completed').length} />
+            <StatCard icon={<Users size={18} />} label={t('farmers_served')} value={new Set(appts.map(a => a.farmer_phone)).size} />
           </div>
           <div className="nav-grid">
-            <button className="nav-card" onClick={() => setView('today')}><ClipboardList size={20} /> Today's appointments<ChevronRight size={16} /></button>
-            <button className="nav-card" onClick={() => setView('queue')}><Ticket size={20} /> Live queue<ChevronRight size={16} /></button>
-            <button className="nav-card" onClick={() => setView('analytics')}><TrendingUp size={20} /> Analytics<ChevronRight size={16} /></button>
+            <button className="nav-card" onClick={() => setView('today')}><ClipboardList size={20} /> {t('todays_appointments')}<ChevronRight size={16} /></button>
+            <button className="nav-card" onClick={() => setView('queue')}><Ticket size={20} /> {t('live_queue_nav')}<ChevronRight size={16} /></button>
+            <button className="nav-card" onClick={() => setView('analytics')}><TrendingUp size={20} /> {t('analytics_nav')}<ChevronRight size={16} /></button>
           </div>
         </Screen>
       )}
 
       {view === 'today' && (
-        <Screen title="Today's appointments" sub={fmtDate(today)} onBack={() => setView('dashboard')}>
+        <Screen title={t('todays_appointments')} sub={fmtDate(today)} onBack={() => setView('dashboard')}>
           <AppointmentTable appts={todaysAppts} onSelect={(id) => { setSelectedId(id); setView('update'); }} />
         </Screen>
       )}
 
       {view === 'queue' && (
-        <Screen title="Live queue" sub="Sorted by token — oldest first" onBack={() => setView('dashboard')}>
+        <Screen title={t('live_queue_nav')} sub={t('sorted_by_token')} onBack={() => setView('dashboard')}>
           <AppointmentTable appts={activeAppts} showPosition onSelect={(id) => { setSelectedId(id); setView('update'); }} />
         </Screen>
       )}
@@ -148,15 +163,17 @@ export default function App() {
       )}
 
       {view === 'analytics' && (
-        <Screen title="Analytics" sub={centre.name} onBack={() => setView('dashboard')}>
+        <Screen title={t('analytics_nav')} sub={centre.name} onBack={() => setView('dashboard')}>
           <Analytics appts={appts} />
         </Screen>
       )}
     </div>
+    </LangContext.Provider>
   );
 }
 
 function CentreLogin({ onAuthed }) {
+  const { t } = useLang();
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -173,13 +190,16 @@ function CentreLogin({ onAuthed }) {
 
   return (
     <div className="app-shell">
-      <header className="topbar"><div className="brand"><Wheat size={20} /><span>Kisan Setu <em>Centre</em></span></div></header>
-      <Screen title="Procurement centre login" sub="Demo codes — RVP/1111, KDP/2222, SBD/3333.">
+      <header className="topbar">
+        <div className="brand"><Wheat size={20} /><span>Kisan Setu <em>{t('brand_tagline')}</em></span></div>
+        <LanguageSwitcher compact />
+      </header>
+      <Screen title={t('centre_login_title')} sub={t('centre_login_sub')}>
         <form className="form" onSubmit={submit}>
-          <label>Centre code<input value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder="e.g. RVP" maxLength={5} required /></label>
-          <label>PIN<input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="4-digit PIN" required /></label>
+          <label>{t('centre_code_label')}<input value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder={t('centre_code_placeholder')} maxLength={5} required /></label>
+          <label>{t('pin_label')}<input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={t('pin_placeholder')} required /></label>
           {error && <div className="error"><AlertCircle size={14} /> {error}</div>}
-          <button className="primary-btn wide" type="submit" disabled={loading}>{loading ? 'Please wait…' : <>Enter dashboard <ChevronRight size={16} /></>}</button>
+          <button className="primary-btn wide" type="submit" disabled={loading}>{loading ? t('please_wait') : <>{t('enter_dashboard_btn')} <ChevronRight size={16} /></>}</button>
         </form>
       </Screen>
     </div>
@@ -197,13 +217,14 @@ function StatCard({ icon, label, value, onClick }) {
 }
 
 function AppointmentTable({ appts, onSelect, showPosition }) {
-  if (appts.length === 0) return <EmptyState text="Nothing here yet." />;
+  const { t } = useLang();
+  if (appts.length === 0) return <EmptyState text={t('nothing_here_yet')} />;
   return (
     <div className="table-wrap">
       <table>
         <thead><tr>
-          {showPosition && <th>#</th>}
-          <th>Token</th><th>Farmer</th><th>Crop</th><th>Slot</th><th>Status</th>
+          {showPosition && <th>{t('col_hash')}</th>}
+          <th>{t('col_token')}</th><th>{t('col_farmer')}</th><th>{t('col_crop')}</th><th>{t('col_slot')}</th><th>{t('col_status')}</th>
         </tr></thead>
         <tbody>
           {appts.map((a, i) => (
@@ -211,7 +232,7 @@ function AppointmentTable({ appts, onSelect, showPosition }) {
               {showPosition && <td className="muted">{i + 1}</td>}
               <td className="mono">{a.token}</td>
               <td><strong>{a.farmer_name}</strong>{a.farmer_village && <div className="muted">{a.farmer_village}</div>}</td>
-              <td>{a.crop_type}<div className="muted">{a.crop_qty} qtl · Grade {a.crop_grade}</div></td>
+              <td>{a.crop_type}<div className="muted">{a.crop_qty} qtl · {t('grade_prefix')} {a.crop_grade}</div></td>
               <td>{a.slot_time}</td>
               <td><StatusPill status={a.status} /></td>
             </tr>
@@ -223,9 +244,10 @@ function AppointmentTable({ appts, onSelect, showPosition }) {
 }
 
 function UpdateStatus({ appt, onBack, onStatus, onProcure }) {
+  const { t } = useLang();
   const [qty, setQty] = useState(appt?.crop_qty || '');
   const [price, setPrice] = useState('');
-  if (!appt) return <Screen title="Not found" onBack={onBack}><EmptyState text="Select an appointment from the queue." /></Screen>;
+  if (!appt) return <Screen title={t('not_found')} onBack={onBack}><EmptyState text={t('select_from_queue')} /></Screen>;
 
   const closed = CLOSED_STATUSES.includes(appt.status);
   const isClosedException = appt.status === 'Rejected' || appt.status === 'No Show';
@@ -234,10 +256,10 @@ function UpdateStatus({ appt, onBack, onStatus, onProcure }) {
   return (
     <Screen title={`Token ${appt.token}`} sub={appt.farmer_name} onBack={onBack}>
       <div className="confirm-card">
-        <Row label="Farmer" value={`${appt.farmer_name} · ${appt.farmer_village || '—'} · ${appt.farmer_phone}`} />
-        <Row label="Crop" value={`${appt.crop_type} — ${appt.crop_qty} qtl, grade ${appt.crop_grade}`} />
-        <Row label="Slot" value={`${fmtDate(appt.slot_date)} · ${appt.slot_time}`} />
-        <Row label="Current status" value={<StatusPill status={appt.status} />} />
+        <Row label={t('farmer_label')} value={`${appt.farmer_name} · ${appt.farmer_village || '—'} · ${appt.farmer_phone}`} />
+        <Row label={t('crop_label')} value={`${appt.crop_type} — ${appt.crop_qty} qtl, ${t('grade_prefix')} ${appt.crop_grade}`} />
+        <Row label={t('slot_label')} value={`${fmtDate(appt.slot_date)} · ${appt.slot_time}`} />
+        <Row label={t('current_status_label')} value={<StatusPill status={appt.status} />} />
       </div>
 
       {!isClosedException && (
@@ -245,56 +267,58 @@ function UpdateStatus({ appt, onBack, onStatus, onProcure }) {
           {STATUS_FLOW.map((s, i) => (
             <div key={s} className={'progress-step' + (i <= stepIndex ? ' done' : '')}>
               <span className="progress-dot" style={i <= stepIndex ? { '--dot-color': STATUS_COLOR[s] } : undefined} />
-              <span className="progress-label">{s}</span>
+              <span className="progress-label">{t(STATUS_KEY[s])}</span>
             </div>
           ))}
         </div>
       )}
 
-      <h3 className="section-label">Weighing details</h3>
-      <p className="muted" style={{ marginTop: -6, marginBottom: 10 }}>Fill these in before pressing the "Weighing Complete" button below.</p>
+      <h3 className="section-label">{t('weighing_details_title')}</h3>
+      <p className="muted" style={{ marginTop: -6, marginBottom: 10 }}>{t('weighing_details_sub')}</p>
       <div className="form">
-        <label>Quantity accepted (qtl)<input type="number" value={qty} onChange={e => setQty(e.target.value)} /></label>
-        <label>Rate (₹ / qtl)<input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="e.g. 2100" /></label>
+        <label>{t('quantity_accepted_label')}<input type="number" value={qty} onChange={e => setQty(e.target.value)} /></label>
+        <label>{t('rate_label')}<input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="e.g. 2100" /></label>
       </div>
 
-      <h3 className="section-label">Move status</h3>
-      <p className="muted" style={{ marginTop: -6, marginBottom: 10 }}>These buttons are only available in the centre app — clicking one updates the status the farmer sees on their Status tab.</p>
+      <h3 className="section-label">{t('move_status_title')}</h3>
+      <p className="muted" style={{ marginTop: -6, marginBottom: 10 }}>{t('move_status_sub')}</p>
       <div className="status-actions status-actions-stack">
-        <button className="status-btn" disabled={appt.status !== 'Appointment Booked'} onClick={() => onStatus('Checked In at Centre', 'Farmer checked in at centre')}>Checked In at Centre</button>
-        <button className="status-btn" disabled={appt.status !== 'Checked In at Centre'} onClick={() => onStatus('Quality Inspection', 'Sent for quality inspection')}>Quality Inspection</button>
-        <button className="status-btn" disabled={appt.status !== 'Quality Inspection'} onClick={() => onProcure(Number(qty), Number(price))}>Weighing Complete</button>
-        <button className="status-btn" disabled={appt.status !== 'Weighing Complete'} onClick={() => onStatus('Payment Processing', 'Payment processing started')}>Payment Processing</button>
-        <button className="status-btn" disabled={appt.status !== 'Payment Processing'} onClick={() => onStatus('Payment Completed', 'Payment completed')}>Payment Completed</button>
+        <button className="status-btn" disabled={appt.status !== 'Appointment Booked'} onClick={() => onStatus('Checked In at Centre', 'Farmer checked in at centre')}>{t('status_checked_in')}</button>
+        <button className="status-btn" disabled={appt.status !== 'Checked In at Centre'} onClick={() => onStatus('Quality Inspection', 'Sent for quality inspection')}>{t('status_quality_inspection')}</button>
+        <button className="status-btn" disabled={appt.status !== 'Quality Inspection'} onClick={() => onProcure(Number(qty), Number(price))}>{t('status_weighing_complete')}</button>
+        <button className="status-btn" disabled={appt.status !== 'Weighing Complete'} onClick={() => onStatus('Payment Processing', 'Payment processing started')}>{t('status_payment_processing')}</button>
+        <button className="status-btn" disabled={appt.status !== 'Payment Processing'} onClick={() => onStatus('Payment Completed', 'Payment completed')}>{t('status_payment_completed')}</button>
       </div>
 
-      <h3 className="section-label">Exceptions</h3>
+      <h3 className="section-label">{t('exceptions_title')}</h3>
       <div className="status-actions">
-        <button className="status-btn warn" disabled={closed} onClick={() => onStatus('No Show', 'Marked no-show')}>No show</button>
-        <button className="status-btn danger" disabled={closed} onClick={() => onStatus('Rejected', 'Rejected by centre')}>Reject</button>
+        <button className="status-btn warn" disabled={closed} onClick={() => onStatus('No Show', 'Marked no-show')}>{t('no_show_btn')}</button>
+        <button className="status-btn danger" disabled={closed} onClick={() => onStatus('Rejected', 'Rejected by centre')}>{t('reject_btn')}</button>
       </div>
     </Screen>
   );
 }
 
 function Analytics({ appts }) {
-  const byStatus = STATUS_ORDER.map(s => ({ name: s, value: appts.filter(a => a.status === s).length })).filter(d => d.value > 0);
+  const { t } = useLang();
+  const byStatus = STATUS_ORDER.map(s => ({ name: t(STATUS_KEY[s]), value: appts.filter(a => a.status === s).length })).filter(d => d.value > 0);
+  const statusColorByLabel = Object.fromEntries(STATUS_ORDER.map(s => [t(STATUS_KEY[s]), STATUS_COLOR[s]]));
   const byCrop = {};
   appts.filter(a => a.status === 'Payment Completed').forEach(a => { byCrop[a.crop_type] = (byCrop[a.crop_type] || 0) + (a.p_qty || 0); });
   const cropData = Object.entries(byCrop).map(([name, qty]) => ({ name, qty }));
   const totalValue = appts.filter(a => a.status === 'Payment Completed').reduce((sum, a) => sum + (a.p_qty || 0) * (a.p_price || 0), 0);
 
-  if (appts.length === 0) return <EmptyState text="No data yet — appointments will show up here." />;
+  if (appts.length === 0) return <EmptyState text={t('no_data_yet')} />;
 
   return (
     <div>
       <div className="stat-grid">
-        <StatCard icon={<Package size={18} />} label="Total quintals procured" value={Object.values(byCrop).reduce((a, b) => a + b, 0)} />
-        <StatCard icon={<TrendingUp size={18} />} label="Total value" value={`₹${totalValue.toLocaleString('en-IN')}`} />
+        <StatCard icon={<Package size={18} />} label={t('total_quintals_procured')} value={Object.values(byCrop).reduce((a, b) => a + b, 0)} />
+        <StatCard icon={<TrendingUp size={18} />} label={t('total_value')} value={`₹${totalValue.toLocaleString('en-IN')}`} />
       </div>
       {cropData.length > 0 && (
         <div className="chart-card">
-          <h3 className="section-label">Procured quantity by crop (qtl)</h3>
+          <h3 className="section-label">{t('procured_qty_by_crop')}</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={cropData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#D8CFA9" />
@@ -308,11 +332,11 @@ function Analytics({ appts }) {
       )}
       {byStatus.length > 0 && (
         <div className="chart-card">
-          <h3 className="section-label">Appointment status mix</h3>
+          <h3 className="section-label">{t('status_mix')}</h3>
           <ResponsiveContainer width="100%" height={240}>
             <PieChart>
               <Pie data={byStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={(d) => `${d.name} (${d.value})`}>
-                {byStatus.map((d, i) => <Cell key={i} fill={STATUS_COLOR[d.name]} />)}
+                {byStatus.map((d, i) => <Cell key={i} fill={statusColorByLabel[d.name]} />)}
               </Pie>
               <Tooltip /><Legend />
             </PieChart>

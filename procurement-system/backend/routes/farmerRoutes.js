@@ -67,8 +67,19 @@ router.post('/appointments', (req, res) => {
     return res.status(409).json({ error: 'That slot just filled up. Please pick another.' });
   }
 
-  const seq = db.prepare('SELECT COUNT(*) as c FROM appointments WHERE centre_id=? AND slot_date=?').get(centreId, slotDate).c + 1;
-  const token = `${centre.code}-${slotDate.slice(5).replace('-', '')}-${String(seq).padStart(3, '0')}`;
+  // Dynamic e-token: centre code + date + a random 4-digit suffix, so
+  // tokens aren't sequentially guessable. Retry on the rare collision
+  // (the DB's UNIQUE constraint on token is the final backstop either way).
+  const genToken = () => {
+    const rand = String(Math.floor(1000 + Math.random() * 9000));
+    return `E-${centre.code}-${slotDate.slice(5).replace('-', '')}-${rand}`;
+  };
+  let token = genToken();
+  let tries = 0;
+  while (db.prepare('SELECT id FROM appointments WHERE token = ?').get(token) && tries < 8) {
+    token = genToken();
+    tries += 1;
+  }
   const now = Date.now();
 
   const info = db.prepare(
@@ -144,13 +155,16 @@ router.get('/live-queue', (req, res) => {
 // Nothing here queries outside WHERE farmer_id = req.user.id, so the
 // model is never even shown another farmer's data to accidentally leak.
 router.post('/chat', async (req, res) => {
-  const { message, history } = req.body || {};
+  const { message, history, lang } = req.body || {};
   if (!message || typeof message !== 'string') {
     return res.status(400).json({ error: 'Message is required.' });
   }
   if (!process.env.ANTHROPIC_API_KEY) {
     return res.status(500).json({ error: 'Chat is not configured on the server yet (missing ANTHROPIC_API_KEY).' });
   }
+
+  const LANG_NAMES = { en: 'English', hi: 'Hindi', te: 'Telugu' };
+  const langName = LANG_NAMES[lang] || 'English';
 
   const farmer = db.prepare('SELECT name, village FROM farmers WHERE id = ?').get(req.user.id);
   const appts = db.prepare(
@@ -174,7 +188,9 @@ You can only see this farmer's own bookings, listed below. You have no access to
 This farmer's bookings:
 ${apptSummary}
 
-Answer questions about their bookings, token/queue position, procurement status, and how the app's status flow works (Appointment Booked -> Checked In at Centre -> Quality Inspection -> Weighing Complete -> Payment Processing -> Payment Completed, or Rejected / No Show at the centre's discretion). Only the procurement centre can change a booking's status — the farmer app is read-only on status. Keep answers short and conversational. If asked something outside this scope, say so honestly.`;
+Answer questions about their bookings, token/queue position, procurement status, and how the app's status flow works (Appointment Booked -> Checked In at Centre -> Quality Inspection -> Weighing Complete -> Payment Processing -> Payment Completed, or Rejected / No Show at the centre's discretion). Only the procurement centre can change a booking's status — the farmer app is read-only on status. Keep answers short and conversational. If asked something outside this scope, say so honestly.
+
+Respond ONLY in ${langName}, regardless of what language the farmer writes in, unless they explicitly ask you to switch languages. Use simple, everyday ${langName} suited to a farmer using a mobile app, not formal or technical language.`;
 
   const safeHistory = Array.isArray(history)
     ? history.filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string').slice(-10)

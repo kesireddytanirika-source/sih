@@ -1,19 +1,31 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send } from 'lucide-react';
 import { apiFetch } from './api.js';
+import { useLang } from './i18n.jsx';
 
-export default function ChatWidget({ token }) {
+export default function ChatWidget({ token, lang }) {
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Hi! Ask me about your bookings, your token, or how procurement status works.' },
+    { role: 'assistant', content: t('chat_greeting') },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
+  const lastLang = useRef(lang);
 
   useEffect(() => {
     if (open) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, open]);
+
+  // If the person switches language while chat is open, refresh the
+  // greeting so it matches — but don't touch anything they've already typed.
+  useEffect(() => {
+    if (lastLang.current !== lang) {
+      lastLang.current = lang;
+      setMessages((m) => (m.length === 1 && m[0].role === 'assistant' ? [{ role: 'assistant', content: t('chat_greeting') }] : m));
+    }
+  }, [lang]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const send = async (e) => {
     e.preventDefault();
@@ -26,10 +38,10 @@ export default function ChatWidget({ token }) {
     setLoading(true);
 
     try {
-      const res = await apiFetch('/farmer/chat', { method: 'POST', token, body: { message: text, history } });
+      const res = await apiFetch('/farmer/chat', { method: 'POST', token, body: { message: text, history, lang } });
       setMessages((m) => [...m, { role: 'assistant', content: res.reply }]);
     } catch (err) {
-      setMessages((m) => [...m, { role: 'assistant', content: `Sorry, something went wrong: ${err.message}` }]);
+      setMessages((m) => [...m, { role: 'assistant', content: t('chat_error', { error: err.message }) }]);
     }
     setLoading(false);
   };
@@ -42,7 +54,7 @@ export default function ChatWidget({ token }) {
 
       {open && (
         <div className="chat-panel">
-          <div className="chat-head">Kisan Setu Assistant</div>
+          <div className="chat-head">{t('chat_title')}</div>
           <div className="chat-body">
             {messages.map((m, i) => (
               <div key={i} className={'chat-msg ' + m.role}>{m.content}</div>
@@ -51,7 +63,7 @@ export default function ChatWidget({ token }) {
             <div ref={bottomRef} />
           </div>
           <form className="chat-input-row" onSubmit={send}>
-            <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask about your bookings…" />
+            <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={t('chat_placeholder')} />
             <button type="submit" disabled={loading} aria-label="Send message"><Send size={16} /></button>
           </form>
         </div>
