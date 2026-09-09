@@ -28,7 +28,7 @@ const dict = {
     farmers_served: 'Farmers served',
     live_queue_nav: 'Live queue',
     analytics_nav: 'Analytics',
-    sorted_by_token: 'Sorted by token — oldest first',
+    sorted_by_token: 'Sorted by time slot, then token number',
     nothing_here_yet: 'Nothing here yet.',
 
     col_hash: '#',
@@ -93,7 +93,7 @@ const dict = {
     farmers_served: 'सेवा किए गए किसान',
     live_queue_nav: 'लाइव कतार',
     analytics_nav: 'विश्लेषण',
-    sorted_by_token: 'टोकन के अनुसार क्रमबद्ध — सबसे पुराना पहले',
+    sorted_by_token: 'पहले टाइम स्लॉट, फिर टोकन नंबर के अनुसार क्रमबद्ध',
     nothing_here_yet: 'यहाँ अभी कुछ नहीं है।',
 
     col_hash: '#',
@@ -158,7 +158,7 @@ const dict = {
     farmers_served: 'సేవ చేసిన రైతులు',
     live_queue_nav: 'లైవ్ క్యూ',
     analytics_nav: 'విశ్లేషణ',
-    sorted_by_token: 'టోకెన్ ప్రకారం క్రమబద్ధీకరించబడింది — పాతది మొదట',
+    sorted_by_token: 'ముందుగా టైమ్ స్లాట్, తర్వాత టోకెన్ నంబర్ ప్రకారం క్రమబద్ధీకరించబడింది',
     nothing_here_yet: 'ఇక్కడ ఇంకా ఏమీ లేదు.',
 
     col_hash: '#',

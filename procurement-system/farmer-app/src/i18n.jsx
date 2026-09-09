@@ -79,6 +79,8 @@ const dict = {
     refresh_btn: 'Refresh',
     no_active_bookings: 'You have no active bookings in a queue right now.',
     in_queue_today_suffix: 'of {total} in queue today',
+    people_ahead_label: '{count} people ahead of you',
+    queue_next_up: "You're next!",
 
     status_appointment_booked: 'Appointment Booked',
     status_checked_in: 'Checked In at Centre',
@@ -174,6 +176,8 @@ const dict = {
     refresh_btn: 'रीफ़्रेश करें',
     no_active_bookings: 'अभी आपकी कोई सक्रिय बुकिंग कतार में नहीं है।',
     in_queue_today_suffix: 'आज कतार में {total} में से',
+    people_ahead_label: 'आपसे पहले {count} लोग हैं',
+    queue_next_up: 'अब आपकी बारी है!',
 
     status_appointment_booked: 'अपॉइंटमेंट बुक हुआ',
     status_checked_in: 'केंद्र पर चेक-इन हुआ',
@@ -269,6 +273,8 @@ const dict = {
     refresh_btn: 'రిఫ్రెష్ చేయండి',
     no_active_bookings: 'ప్రస్తుతం మీకు క్యూలో యాక్టివ్ బుకింగ్‌లు లేవు.',
     in_queue_today_suffix: 'ఈరోజు క్యూలో {total} లో',
+    people_ahead_label: 'మీకు ముందు {count} మంది ఉన్నారు',
+    queue_next_up: 'ఇప్పుడు మీ వంతు!',
 
     status_appointment_booked: 'అపాయింట్‌మెంట్ బుక్ అయింది',
     status_checked_in: 'కేంద్రంలో చెక్-ఇన్ అయింది',
@@ -329,3 +335,4 @@ export function LanguageSwitcher({ compact }) {
     </select>
   );
 }
+

@@ -23,6 +23,16 @@ const STATUS_FLOW = [
 ];
 const ACTIVE_STATUSES = ['Appointment Booked', 'Checked In at Centre', 'Quality Inspection', 'Weighing Complete', 'Payment Processing'];
 const CLOSED_STATUSES = ['Payment Completed', 'Rejected', 'No Show'];
+// Chronological order of the day's slots — used so the queue always reads
+// time-slot first, then token, the same order the centre works through it.
+const SLOT_ORDER = ['6:00 – 9:00 AM', '9:00 – 12:00 PM', '12:00 – 3:00 PM', '3:00 – 6:00 PM'];
+function slotRank(slotTime) {
+  const i = SLOT_ORDER.indexOf(slotTime);
+  return i === -1 ? SLOT_ORDER.length : i;
+}
+function byQueueOrder(a, b) {
+  return a.slot_date.localeCompare(b.slot_date) || (slotRank(a.slot_time) - slotRank(b.slot_time)) || a.token.localeCompare(b.token);
+}
 const STATUS_COLOR = {
   'Appointment Booked': '#8A7A46',
   'Checked In at Centre': '#6E7F9E',
@@ -99,8 +109,8 @@ export default function App() {
   );
 
   const today = todayISO();
-  const todaysAppts = appts.filter(a => a.slot_date === today).sort((a, b) => a.token.localeCompare(b.token));
-  const activeAppts = appts.filter(a => ACTIVE_STATUSES.includes(a.status)).sort((a, b) => a.token.localeCompare(b.token));
+  const todaysAppts = appts.filter(a => a.slot_date === today).sort(byQueueOrder);
+  const activeAppts = appts.filter(a => ACTIVE_STATUSES.includes(a.status)).sort(byQueueOrder);
 
   const updateStatus = async (id, status, note) => {
     try { await apiFetch(`/centre/appointments/${id}/status`, { method: 'PATCH', token, body: { status, note } }); await loadAll(); }
@@ -228,7 +238,7 @@ function AppointmentTable({ appts, onSelect, showPosition }) {
         </tr></thead>
         <tbody>
           {appts.map((a, i) => (
-            <tr key={a.id} onClick={() => onSelect(a.id)}>
+            <tr key={a.id} style={{ '--pill-color': STATUS_COLOR[a.status] }} onClick={() => onSelect(a.id)}>
               {showPosition && <td className="muted">{i + 1}</td>}
               <td className="mono">{a.token}</td>
               <td><strong>{a.farmer_name}</strong>{a.farmer_village && <div className="muted">{a.farmer_village}</div>}</td>

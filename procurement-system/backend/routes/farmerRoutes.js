@@ -24,6 +24,18 @@ export const STATUS_FLOW = [
 const ACTIVE_STATUSES = ['Appointment Booked', 'Checked In at Centre', 'Quality Inspection', 'Weighing Complete', 'Payment Processing'];
 const CLOSED_STATUSES = ['Payment Completed', 'Rejected', 'No Show'];
 
+// Chronological order of the day's slots (this is display order, not
+// alphabetical — "12:00 – 3:00 PM" must sort after "9:00 – 12:00 PM").
+// The queue is always ordered by this rank first, then by token.
+const SLOT_ORDER = ['6:00 – 9:00 AM', '9:00 – 12:00 PM', '12:00 – 3:00 PM', '3:00 – 6:00 PM'];
+function slotRank(slotTime) {
+  const i = SLOT_ORDER.indexOf(slotTime);
+  return i === -1 ? SLOT_ORDER.length : i;
+}
+function byQueueOrder(a, b) {
+  return slotRank(a.slot_time) - slotRank(b.slot_time) || String(a.token).localeCompare(String(b.token));
+}
+
 router.get('/me', (req, res) => {
   const f = db.prepare('SELECT id, name, phone, village FROM farmers WHERE id = ?').get(req.user.id);
   res.json(f);
@@ -115,38 +127,42 @@ router.get('/appointments/:id', (req, res) => {
 
 // Live queue: for each of this farmer's still-active bookings, show how
 // many bookings at that same centre/date are ahead of it and how many are
-// in the queue in total. Only counts are returned — never other farmers'
-// names, phones, or crop details — so nothing about anyone else leaks.
+// in the queue in total. The queue order is always time-slot first, then
+// token number within the slot — matching the order the centre works
+// through it. Only counts are returned — never other farmers' names,
+// phones, or crop details — so nothing about anyone else leaks.
 router.get('/live-queue', (req, res) => {
   const closedPlaceholders = CLOSED_STATUSES.map(() => '?').join(',');
   const mine = db.prepare(
     `SELECT a.*, c.name as centre_name FROM appointments a
      JOIN centres c ON c.id = a.centre_id
-     WHERE a.farmer_id = ? AND a.status NOT IN (${closedPlaceholders})
-     ORDER BY a.slot_date ASC, a.token ASC`
+     WHERE a.farmer_id = ? AND a.status NOT IN (${closedPlaceholders})`
   ).all(req.user.id, ...CLOSED_STATUSES);
 
-  const aheadStmt = db.prepare(
-    `SELECT COUNT(*) as c FROM appointments
-     WHERE centre_id = ? AND slot_date = ? AND status NOT IN (${closedPlaceholders}) AND token < ?`
-  );
-  const totalStmt = db.prepare(
-    `SELECT COUNT(*) as c FROM appointments
+  const dayQueueStmt = db.prepare(
+    `SELECT token, slot_time FROM appointments
      WHERE centre_id = ? AND slot_date = ? AND status NOT IN (${closedPlaceholders})`
   );
 
-  const queue = mine.map((a) => ({
-    id: a.id,
-    token: a.token,
-    status: a.status,
-    centreName: a.centre_name,
-    slotDate: a.slot_date,
-    slotTime: a.slot_time,
-    cropType: a.crop_type,
-    cropQty: a.crop_qty,
-    position: aheadStmt.get(a.centre_id, a.slot_date, ...CLOSED_STATUSES, a.token).c + 1,
-    totalInQueue: totalStmt.get(a.centre_id, a.slot_date, ...CLOSED_STATUSES).c,
-  }));
+  const queue = mine.map((a) => {
+    const dayQueue = dayQueueStmt.all(a.centre_id, a.slot_date, ...CLOSED_STATUSES).sort(byQueueOrder);
+    const position = dayQueue.findIndex((r) => r.token === a.token) + 1;
+    return {
+      id: a.id,
+      token: a.token,
+      status: a.status,
+      centreName: a.centre_name,
+      slotDate: a.slot_date,
+      slotTime: a.slot_time,
+      cropType: a.crop_type,
+      cropQty: a.crop_qty,
+      position,
+      peopleAhead: Math.max(0, position - 1),
+      totalInQueue: dayQueue.length,
+    };
+  });
+
+  queue.sort((x, y) => x.slotDate.localeCompare(y.slotDate) || byQueueOrder({ token: x.token, slot_time: x.slotTime }, { token: y.token, slot_time: y.slotTime }));
 
   res.json(queue);
 });

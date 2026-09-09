@@ -24,6 +24,21 @@ const ACTIVE_STATUSES = ['Appointment Booked', 'Checked In at Centre', 'Quality 
 // carry a quantity and price — it isn't a plain PATCH /status transition.
 const PATCHABLE_STATUSES = ['Checked In at Centre', 'Quality Inspection', 'Payment Processing', 'Payment Completed', 'Rejected', 'No Show'];
 
+// Chronological order of the day's slots (this is display order, not
+// alphabetical — "12:00 – 3:00 PM" must sort after "9:00 – 12:00 PM").
+// The queue is always ordered by this rank first, then by token, so it
+// matches the order the centre actually works through the day.
+const SLOT_ORDER = ['6:00 – 9:00 AM', '9:00 – 12:00 PM', '12:00 – 3:00 PM', '3:00 – 6:00 PM'];
+function slotRank(slotTime) {
+  const i = SLOT_ORDER.indexOf(slotTime);
+  return i === -1 ? SLOT_ORDER.length : i;
+}
+function byQueueOrder(a, b) {
+  return String(a.slot_date).localeCompare(String(b.slot_date))
+    || (slotRank(a.slot_time) - slotRank(b.slot_time))
+    || String(a.token).localeCompare(String(b.token));
+}
+
 router.get('/me', (req, res) => {
   const c = db.prepare('SELECT id, code, name, location, capacity_per_slot as capacityPerSlot FROM centres WHERE id = ?').get(req.user.id);
   res.json(c);
@@ -39,8 +54,9 @@ router.get('/appointments', (req, res) => {
     query += ` AND a.status IN (${ACTIVE_STATUSES.map(() => '?').join(',')})`;
     params.push(...ACTIVE_STATUSES);
   }
-  query += ' ORDER BY a.token ASC';
-  res.json(db.prepare(query).all(...params));
+  const rows = db.prepare(query).all(...params);
+  rows.sort(byQueueOrder);
+  res.json(rows);
 });
 
 router.get('/appointments/:id', (req, res) => {

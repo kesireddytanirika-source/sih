@@ -240,7 +240,7 @@ function HomeTab({ farmer, appointments, onBookNew, onOpenStatus, onViewAllStatu
       {appointments.length === 0 && <EmptyState text={t('no_bookings_yet')} />}
       <div className="appt-list">
         {recent.map(a => (
-          <button key={a.id} className="appt-row" onClick={() => onOpenStatus(a.id)}>
+          <button key={a.id} className="appt-row" style={{ '--pill-color': STATUS_COLOR[a.status] }} onClick={() => onOpenStatus(a.id)}>
             <div className="appt-token">{a.token}</div>
             <div className="appt-mid">
               <strong>{a.crop_type}</strong> · {a.crop_qty} qtl
@@ -399,7 +399,7 @@ function StatusList({ appointments, onSelect, onBookNew }) {
       {appointments.length === 0 && <EmptyState text={t('no_bookings_yet')} />}
       <div className="appt-list">
         {appointments.map(a => (
-          <button key={a.id} className="appt-row" onClick={() => onSelect(a.id)}>
+          <button key={a.id} className="appt-row" style={{ '--pill-color': STATUS_COLOR[a.status] }} onClick={() => onSelect(a.id)}>
             <div className="appt-token">{a.token}</div>
             <div className="appt-mid">
               <strong>{a.crop_type}</strong> · {a.crop_qty} qtl
@@ -494,19 +494,25 @@ function LiveQueueTab({ token }) {
       {queue && queue.length === 0 && <EmptyState text={t('no_active_bookings')} />}
       {queue && queue.length > 0 && (
         <div className="queue-list">
-          {queue.map(q => (
-            <div key={q.id} className="queue-card">
-              <div className="queue-card-head">
-                <span className="appt-token">{q.token}</span>
-                <StatusPill status={q.status} />
+          {queue.map(q => {
+            const ahead = q.peopleAhead ?? Math.max(0, q.position - 1);
+            return (
+              <div key={q.id} className="queue-card" style={{ '--pill-color': STATUS_COLOR[q.status] }}>
+                <div className="queue-card-head">
+                  <span className="appt-token">{q.token}</span>
+                  <StatusPill status={q.status} />
+                </div>
+                <div className="muted">{q.centreName} · {fmtDate(q.slotDate)} · {q.slotTime}</div>
+                <div className="queue-position">
+                  <span className="queue-position-num">{q.position}</span>
+                  <span className="muted"> {t('in_queue_today_suffix', { total: q.totalInQueue })}</span>
+                </div>
+                <div className={ahead === 0 ? 'queue-ahead-badge next' : 'queue-ahead-badge'}>
+                  {ahead === 0 ? t('queue_next_up') : t('people_ahead_label', { count: ahead })}
+                </div>
               </div>
-              <div className="muted">{q.centreName} · {fmtDate(q.slotDate)} · {q.slotTime}</div>
-              <div className="queue-position">
-                <span className="queue-position-num">{q.position}</span>
-                <span className="muted"> {t('in_queue_today_suffix', { total: q.totalInQueue })}</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </Screen>
